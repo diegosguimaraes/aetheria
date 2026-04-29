@@ -98,3 +98,4 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 ---
 
 Desenvolvido com ❤️ por [Diego Guimarães](https://github.com/diegosguimaraes2012) - *Explorando o infinito, uma linha de código por vez.*
+Ajude a desenvolver esse projeto buymeacoffee.com/aetheria.iamgroot
