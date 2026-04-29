@@ -7,7 +7,7 @@
 ![Gemini AI](https://img.shields.io/badge/Powered%20by-Gemini%20AI-orange?logo=google-gemini)
 
 AETHERIA está nascendo — cada apoio ajuda a transformar este universo em realidade. Desperte o infinito comigo!
-<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="aetheria.iamgroot" data-color="#FFDD00" data-emoji="☕"  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
+<a href="https://www.buymeacoffee.com/aetheria.iamgroot" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
 **StarCraft: Procedural Universe** é um simulador de exploração espacial épico que combina estratégia, RPG e gerenciamento de colônias. Navegue por uma galáxia vasta e dinâmica, onde cada planeta, missão e encontro é único, impulsionado por inteligência artificial avançada.
 
