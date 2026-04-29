@@ -1,4 +1,4 @@
-# 🚀 StarCraft: Procedural Universe
+# 🚀 Aetheria: Desperte o Infinito!
 
 ![Project Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
@@ -10,7 +10,7 @@
 AETHERIA está nascendo — cada apoio ajuda a transformar este universo em realidade. Desperte o infinito comigo!
 
 
-**StarCraft: Procedural Universe** é um simulador de exploração espacial épico que combina estratégia, RPG e gerenciamento de colônias. Navegue por uma galáxia vasta e dinâmica, onde cada planeta, missão e encontro é único, impulsionado por inteligência artificial avançada.
+**Aetheria: Procedural Universe** é um simulador de exploração espacial épico que combina estratégia, RPG e gerenciamento de colônias. Navegue por uma galáxia vasta e dinâmica, onde cada planeta, missão e encontro é único, impulsionado por inteligência artificial avançada.
 
 ---
 
@@ -59,8 +59,8 @@ O projeto utiliza uma stack moderna para garantir performance e escalabilidade:
 
 1. **Clone o repositório:**
    ```bash
-   git clone https://github.com/seu-usuario/starcraft-procedural.git
-   cd starcraft-procedural
+   git clone https://github.com/seu-usuario/aetheria.git
+   cd aetheria
    ```
 
 2. **Instale as dependências:**
