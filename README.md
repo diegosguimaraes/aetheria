@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://copilot.microsoft.com/th/id/BCO.105ff8cb-9a8b-4046-a4ff-0f551769cc1c.png" alt="AETHERIA" width="100%">
+</p>
+
 # 🚀 Aetheria: Desperte o Infinito!
 
 ![Project Version](https://img.shields.io/badge/version-1.0.0-blue)
