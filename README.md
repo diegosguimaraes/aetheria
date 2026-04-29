@@ -6,6 +6,9 @@
 ![Vite](https://img.shields.io/badge/Vite-6.x-646CFF?logo=vite)
 ![Gemini AI](https://img.shields.io/badge/Powered%20by-Gemini%20AI-orange?logo=google-gemini)
 
+AETHERIA está nascendo — cada apoio ajuda a transformar este universo em realidade. Desperte o infinito comigo!
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="aetheria.iamgroot" data-color="#FFDD00" data-emoji="☕"  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
+
 **StarCraft: Procedural Universe** é um simulador de exploração espacial épico que combina estratégia, RPG e gerenciamento de colônias. Navegue por uma galáxia vasta e dinâmica, onde cada planeta, missão e encontro é único, impulsionado por inteligência artificial avançada.
 
 ---
@@ -98,4 +101,3 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 ---
 
 Desenvolvido com ❤️ por [Diego Guimarães](https://github.com/diegosguimaraes2012) - *Explorando o infinito, uma linha de código por vez.*
-Ajude a desenvolver esse projeto https://buymeacoffee.com/aetheria.iamgroot
