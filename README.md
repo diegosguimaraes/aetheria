@@ -14,7 +14,7 @@
 AETHERIA está nascendo — cada apoio ajuda a transformar este universo em realidade. Desperte o infinito comigo!
 
 
-**Aetheria: Procedural Universe** é um simulador de exploração espacial épico que combina estratégia, RPG e gerenciamento de colônias. Navegue por uma galáxia vasta e dinâmica, onde cada planeta, missão e encontro é único, impulsionado por inteligência artificial avançada.
+**Aetheria: Desperte o Infinito** é um simulador de exploração espacial épico que combina estratégia, RPG e gerenciamento de colônias. Navegue por uma galáxia vasta e dinâmica, onde cada planeta, missão e encontro é único, impulsionado por inteligência artificial avançada.
 
 ---
 
