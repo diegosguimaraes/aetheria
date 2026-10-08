@@ -50,6 +50,8 @@ import {
     calculateShipStats, calculateCurrentCargoUsage,
 } from './utils'; // Corrected import path
 import { Icons } from './icons'; // Corrected import path
+import { createFirstAdventure, createExplorationContract, getMissionProgress } from './adventure';
+import { listSavedGames, loadSavedGame, storeSavedGame, deleteSavedGame } from './services/saveService';
 
 import LoadingSpinner from './components/LoadingSpinner'; // Corrected import path
 import TitleScreen from './components/ui/TitleScreen'; // Corrected import path
@@ -137,6 +139,9 @@ function App() {
   const [npcInteractionMessage, setNpcInteractionMessage] = useState('');
   const [encounteredNPCs, setEncounteredNPCs] = useState<NPC[]>([]);
   const [activeMissions, setActiveMissions] = useState<Mission[]>([]);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveInFlightRef = useRef(false);
+  const claimedMissionIdsRef = useRef(new Set<string>());
 
   const gameTickCounterRef = useRef(0);
   const policySkillPointCounterRef = useRef(0);
@@ -188,18 +193,17 @@ function App() {
     };
 
 
-  const fetchAllSavedGamesMeta = useCallback(() => {
-      const metaJson = localStorage.getItem(SAVE_METADATA_KEY);
-      if (metaJson) {
-        try {
-          const metas = JSON.parse(metaJson) as SavedGameMeta[];
-          setSavedGamesMeta(metas.sort((a,b) => b.timestamp - a.timestamp));
-        } catch (e) {
-          console.error("Failed to parse save metadata:", e);
-          setSavedGamesMeta([]);
-        }
-      } else {
-        setSavedGamesMeta([]);
+  const fetchAllSavedGamesMeta = useCallback(async () => {
+      let legacy: SavedGameMeta[] = [];
+      try {
+        const parsed = JSON.parse(localStorage.getItem(SAVE_METADATA_KEY) || '[]');
+        if (Array.isArray(parsed)) legacy = parsed.filter(meta => meta && typeof meta.slotKey === 'string' && localStorage.getItem(meta.slotKey));
+      } catch {}
+      try {
+        const cloud = await listSavedGames();
+        setSavedGamesMeta([...cloud, ...legacy.filter(meta => !cloud.some(save => save.slotKey === meta.slotKey))].sort((first, second) => second.timestamp - first.timestamp));
+      } catch {
+        setSavedGamesMeta(legacy.sort((first, second) => second.timestamp - first.timestamp));
       }
   }, []);
 
@@ -965,8 +969,10 @@ function App() {
                   ...prev,
                   isTraveling: false,
                   travelDetails: null,
-                  currentLocation: (destType === 'planet' || destType === 'station') ? destId : (prev.currentLocation),
-                  currentSystemId: destSystemId
+                  currentLocation: (destType === 'planet' || destType === 'station') ? destId : `orbit_${destId}`,
+                  currentSystemId: destSystemId,
+                  knownSystemIds: [...new Set([...prev.knownSystemIds, ...(destSystemId ? [destSystemId] : [])])],
+                  visitedLocationIds: [...new Set([...(prev.visitedLocationIds || []), destId, ...(destSystemId ? [destSystemId] : [])])],
               };
             }
             return prev;
@@ -1436,6 +1442,8 @@ function App() {
       currentLocation: ALL_STATIONS_DATA.find(s => s.systemId === 'sol' && s.stationType !== 'planetary_port')?.id || 'station_alpha_centauri',
       currentSystemId: 'sol',
       knownSystemIds: ['sol'],
+      visitedLocationIds: ['sol'],
+      surveyedPlanetIds: [],
       ownedShips: [startingShip],
       currentShipId: startingShip.id,
       isTraveling: false,
@@ -1459,7 +1467,10 @@ function App() {
     setDiscoveredPlanets(SYSTEM_PLANETS.map(p => ({...p, discoveredResources: p.discoveredResources || [] })));
     setDiscoveredStations(ALL_STATIONS_DATA.map(s => ({...s})));
     setEncounteredNPCs([]);
-    setActiveMissions([]);
+    setActiveMissions(createFirstAdventure());
+    claimedMissionIdsRef.current.clear();
+    setSaveStatus('idle');
+    _setStarSystems(STAR_SYSTEMS_DATA);
     setActiveColonyEvents([]); 
     setUnresolvedColonyEventToShow(null);
     setSelectedPlanet(null);
@@ -1483,10 +1494,19 @@ function App() {
 
 
   const handleLoadGame = useCallback(async (slotKey: string) => {
-    const savedGameJson = localStorage.getItem(slotKey);
+    let savedGameJson: string | null = null;
+    try { savedGameJson = JSON.stringify(await loadSavedGame(slotKey)); }
+    catch { try { savedGameJson = localStorage.getItem(slotKey); } catch {} }
     if (savedGameJson) {
       try {
         const loadedState = JSON.parse(savedGameJson) as FullGameState;
+        _setStarSystems(loadedState.starSystems || STAR_SYSTEMS_DATA);
+        loadedState.playerState.visitedLocationIds ??= [loadedState.playerState.currentLocation, loadedState.playerState.currentSystemId || 'sol'];
+        loadedState.playerState.surveyedPlanetIds ??= [];
+        loadedState.activeMissions ??= [];
+        if (!loadedState.activeMissions.some(mission => mission.category === 'adventure')) loadedState.activeMissions.push(...createFirstAdventure());
+        claimedMissionIdsRef.current = new Set(loadedState.activeMissions.filter(mission => mission.isCompleted).map(mission => mission.id));
+        setSaveStatus('idle');
 
         const allPossiblePlanets = SYSTEM_PLANETS.map(p => ({...p, buildings: p.buildings || [], discoveredResources: p.discoveredResources || [] }));
         const savedPlanetsMap = new Map(loadedState.discoveredPlanets.map(p => [p.id, {...p, buildings: p.buildings || []}]));
@@ -1627,13 +1647,15 @@ function App() {
     }
   }, [showError, showNotification, processNextUnresolvedEvent, unresolvedColonyEventToShow]);
 
-  const handleSaveGame = useCallback((slotKey: string, isQuickSave: boolean = false) => {
+  const handleSaveGame = useCallback(async (slotKey: string, isQuickSave: boolean = false, silent: boolean = false) => {
+      if (saveInFlightRef.current) return;
       if (!playerState || !currentShip) {
         showError("Não é possível salvar: Estado do jogador ou nave não encontrado.");
         return;
       }
       const currentShipName = currentShip?.name || "Nave Desconhecida";
       const gameState: FullGameState = {
+        starSystems: _starSystems,
         playerState: {...playerState},
         discoveredPlanets: [...discoveredPlanets],
         discoveredStations: [...discoveredStations],
@@ -1644,42 +1666,42 @@ function App() {
         lastView: playerState.combatState?.isActive ? viewBeforeCombat : (['colonyMarket', 'researchLabView', 'combat', 'policies'].includes(currentView) ? 'stationDetails' : currentView),
         gameTickCounter: gameTickCounterRef.current,
       };
+      saveInFlightRef.current = true;
+      setSaveStatus('saving');
       try {
-        localStorage.setItem(slotKey, JSON.stringify(gameState));
-
-        let metas = JSON.parse(localStorage.getItem(SAVE_METADATA_KEY) || '[]') as SavedGameMeta[];
-        const existingMetaIndex = metas.findIndex(m => m.slotKey === slotKey);
-        const newMeta: SavedGameMeta = {
-          slotKey,
-          saveDate: new Date().toLocaleString('pt-BR'),
-          characterName: playerState.characterName,
-          currentShipName,
-          timestamp: Date.now(),
-          isQuickSave
-        };
-        if (existingMetaIndex > -1) {
-          metas[existingMetaIndex] = newMeta;
-        } else {
-          metas.push(newMeta);
-        }
-        metas.sort((a,b) => b.timestamp - a.timestamp);
-        localStorage.setItem(SAVE_METADATA_KEY, JSON.stringify(metas));
-        setSavedGamesMeta(metas);
-        showNotification(`Jogo salvo em "${slotKey.includes(DEFAULT_SAVE_SLOT_KEY) ? "Jogo Rápido" : newMeta.saveDate}"!`);
-      } catch (e) {
-        console.error("Error saving game:", e);
-        showError("Falha ao salvar o jogo. Verifique o console para detalhes.");
+        const newMeta = await storeSavedGame(slotKey, gameState, isQuickSave);
+        setSavedGamesMeta(previous => [newMeta, ...previous.filter(meta => meta.slotKey !== slotKey)].sort((first, second) => second.timestamp - first.timestamp));
+        setSaveStatus('saved');
+        if (!silent) showNotification('Sua aventura foi salva! Você pode continuar neste navegador.');
+      } catch {
+        setSaveStatus('error');
+        if (!silent) showError('Não foi possível salvar. Sua partida continua aberta; tente novamente antes de sair.');
+      } finally {
+        saveInFlightRef.current = false;
       }
-  }, [playerState, discoveredPlanets, discoveredStations, encounteredNPCs, activeMissions, activeColonyEvents, currentView, currentShip, showError, showNotification, viewBeforeCombat]);
+  }, [playerState, _starSystems, discoveredPlanets, discoveredStations, encounteredNPCs, activeMissions, activeColonyEvents, currentView, currentShip, showError, showNotification, viewBeforeCombat]);
 
-  const handleDeleteGame = useCallback((slotKey: string) => {
-      localStorage.removeItem(slotKey);
-      const updatedMetas = savedGamesMeta.filter(m => m.slotKey !== slotKey);
-      localStorage.setItem(SAVE_METADATA_KEY, JSON.stringify(updatedMetas));
-      setSavedGamesMeta(updatedMetas);
+  const latestSaveRef = useRef(handleSaveGame);
+  useEffect(() => { latestSaveRef.current = handleSaveGame; }, [handleSaveGame]);
+  const autoSaveActive = !!playerState && ['playing', 'profileView', 'combatView'].includes(gamePhase);
+  const completedMissionCount = activeMissions.filter(mission => mission.isCompleted).length;
+  useEffect(() => {
+    if (!autoSaveActive) return;
+    const save = () => { void latestSaveRef.current(DEFAULT_SAVE_SLOT_KEY, true, true); };
+    const initialSave = window.setTimeout(save, 5000);
+    const interval = window.setInterval(save, 60000);
+    return () => { window.clearTimeout(initialSave); window.clearInterval(interval); };
+  }, [autoSaveActive, playerState?.characterName, completedMissionCount]);
+
+  const handleDeleteGame = useCallback(async (slotKey: string) => {
+      try {
+        await deleteSavedGame(slotKey);
+        try { localStorage.removeItem(slotKey); } catch {}
+        setSavedGamesMeta(previous => previous.filter(meta => meta.slotKey !== slotKey));
+      } catch { showError('Não foi possível excluir a partida. Tente novamente.'); return; }
       setShowDeleteConfirmModal({isOpen: false, slotKeyToDelete: null});
       showNotification("Jogo salvo deletado.");
-  }, [savedGamesMeta, showNotification]);
+  }, [showError, showNotification]);
 
   const handleInitiateDelete = (slotKey: string) => setShowDeleteConfirmModal({isOpen: true, slotKeyToDelete: slotKey});
 
@@ -1848,6 +1870,10 @@ function App() {
 
   const handleScanPlanetResources = useCallback(async (planet: Planet) => {
     if (!playerState) return;
+    if (playerState.currentLocation !== planet.id || playerState.isTraveling) {
+      showNotification('Viaje até a órbita deste planeta antes de usar o scanner.');
+      return;
+    }
     if (playerState.credits < 50) {
       showNotification("Créditos insuficientes para escanear recursos.");
       return;
@@ -1886,6 +1912,7 @@ function App() {
 
 
     setTimeout(() => {
+        setPlayerState(previous => previous ? { ...previous, surveyedPlanetIds: [...new Set([...(previous.surveyedPlanetIds || []), planet.id])] } : null);
         setDiscoveredPlanets(prevPlanets => prevPlanets.map(p =>
             p.id === planet.id
             ? { ...p, discoveredResources: [...new Set([...p.discoveredResources, ...resourcesFound])] }
@@ -2014,7 +2041,7 @@ function App() {
     }
   };
 
-const handleGenerateMission = useCallback(async (factionContextId?: string) => {
+const handleGenerateMission = useCallback(async (factionContextId?: string, useAI = false) => {
     if (isGeneratingMission) {
       showNotification("Geração de missão já está em progresso.");
       return;
@@ -2022,6 +2049,15 @@ const handleGenerateMission = useCallback(async (factionContextId?: string) => {
     if (activeMissions.filter(m => !m.isCompleted).length >= MAX_MISSIONS_ACTIVE) {
         showNotification("Limite de missões ativas atingido.");
         return;
+    }
+
+    if (!factionContextId && !useAI && playerState) {
+      const contract = createExplorationContract(playerState, _starSystems, activeMissions);
+      if (contract) {
+        setActiveMissions(previous => [...previous, contract]);
+        showNotification(`Novo contrato: ${contract.title}`);
+      } else showNotification('Todas as rotas já têm contratos ativos. Conclua um deles para continuar.');
+      return;
     }
 
     setIsGeneratingMission(true);
@@ -2054,7 +2090,7 @@ const handleGenerateMission = useCallback(async (factionContextId?: string) => {
             setActiveMissions(prev => [...prev, newMission]);
             showNotification(`Nova missão recebida: ${newMission.title}`);
         } else {
-            showError("Falha ao gerar missão via LLM. Verifique o console do LM Studio ou tente mais tarde.");
+            showError('A IA está indisponível. Use os contratos de exploração para continuar jogando.');
         }
     } catch(e) {
         console.error("Erro inesperado ao gerar missão:", e);
@@ -2062,7 +2098,7 @@ const handleGenerateMission = useCallback(async (factionContextId?: string) => {
     } finally {
         setIsGeneratingMission(false);
     }
-  }, [activeMissions, playerState, discoveredPlanets, discoveredStations, showError, showNotification, isGeneratingMission]);
+  }, [activeMissions, playerState, _starSystems, discoveredPlanets, discoveredStations, showError, showNotification, isGeneratingMission]);
 
 
   const handleCompleteMission = (missionId: string) => {
@@ -2071,6 +2107,25 @@ const handleGenerateMission = useCallback(async (factionContextId?: string) => {
     if (!mission) {
         showError("Missão não encontrada ou já completa.");
         return;
+    }
+
+    if (claimedMissionIdsRef.current.has(missionId)) return;
+    if (playerState.isTraveling || playerState.combatState?.isActive) {
+      showNotification('Aguarde a viagem ou o combate terminar para receber sua recompensa.');
+      return;
+    }
+    if (mission.category === 'adventure' || mission.category === 'contract') {
+      const progress = getMissionProgress(mission, playerState, discoveredPlanets, activeMissions, discoveredStations);
+      if (!progress.ready) { showNotification(progress.locked ? 'Conclua o capítulo anterior primeiro.' : 'Seu objetivo ainda não foi concluído.'); return; }
+      claimedMissionIdsRef.current.add(missionId);
+      setPlayerState(previous => previous ? {
+        ...previous, credits: previous.credits + Number(mission.rewards.credits || 0),
+        researchPoints: previous.researchPoints + Number(mission.rewards.researchPoints || 0),
+        skillPoints: previous.skillPoints + Number(mission.rewards.skillPoints || 0),
+      } : null);
+      setActiveMissions(previous => previous.map(candidate => candidate.id === missionId ? { ...candidate, isCompleted: true } : candidate));
+      showNotification(`Missão concluída: ${mission.title}! ${mission.rewardsString}`, 6000);
+      return;
     }
 
     let objectiveMet = false;
@@ -2114,7 +2169,7 @@ const handleGenerateMission = useCallback(async (factionContextId?: string) => {
                 }
                 break;
             case MissionObjectiveType.SCAN_FOR_FACTION:
-                if (!details.targetSystemId || !mission.acceptedTick) {
+                if (!details.targetSystemId || mission.acceptedTick === undefined) {
                      showError("Detalhes do objetivo (SCAN) inválidos ou missão não formalmente aceita."); return;
                 }
                 let systemMatch = playerState.currentSystemId === details.targetSystemId;
@@ -2221,6 +2276,7 @@ const handleGenerateMission = useCallback(async (factionContextId?: string) => {
         }
     });
 
+    claimedMissionIdsRef.current.add(missionId);
     setPlayerState(prev => prev ? { ...prev, credits: newCredits, inventory: newInventory, craftedItems: newCraftedItems, ownedShipModules: newOwnedModules, factionReputations: newFactionReputations } : null);
     setActiveMissions(prevMissions => prevMissions.map(m => m.id === missionId ? { ...m, isCompleted: true } : m));
     showNotification(`Missão "${mission.title}" concluída! ${rewardsAppliedText}`);
@@ -3069,6 +3125,17 @@ const handleGenerateMission = useCallback(async (factionContextId?: string) => {
 
 
 
+  const handleOpenMission = (mission: Mission) => {
+    if (playerState?.isTraveling) return;
+    const planet = discoveredPlanets.find(candidate => candidate.id === mission.objectiveDetails?.targetPlanetId);
+    if (planet) { setSelectedPlanet(planet); setSelectedSystemIdForDetailView(planet.systemId); setCurrentView('planet'); }
+    else if (mission.objectiveDetails?.targetSystemId) {
+      setSelectedSystemIdForDetailView(mission.objectiveDetails.targetSystemId);
+      setCurrentView('systemDetail');
+    } else setCurrentView('galaxy');
+    setGamePhase('playing');
+  };
+
   let content: ReactNode;
   if (gamePhase === 'titleScreen') {
     content = <TitleScreen
@@ -3076,6 +3143,8 @@ const handleGenerateMission = useCallback(async (factionContextId?: string) => {
                 onLoadGame={() => setGamePhase('loadGameModal')}
                 gameVersion={GAME_VERSION}
                 onOpenSettings={handleOpenSettings}
+                latestSave={savedGamesMeta[0]}
+                onContinue={() => savedGamesMeta[0] && handleLoadGame(savedGamesMeta[0].slotKey)}
              />;
   } else if (gamePhase === 'characterCreation') {
     content = <CharacterCreationScreen
@@ -3110,12 +3179,17 @@ const handleGenerateMission = useCallback(async (factionContextId?: string) => {
         discoveredPlanets={discoveredPlanets}
         discoveredStations={discoveredStations}
         activeColonyEvents={activeColonyEvents}
+        activeMissions={activeMissions}
+        onOpenMission={handleOpenMission}
+        onCompleteMission={handleCompleteMission}
+        onSave={() => handleSaveGame(DEFAULT_SAVE_SLOT_KEY, true)}
+        saveStatus={saveStatus}
       >
         {currentView === 'galaxy' && <GalaxyView playerState={playerState} starSystems={_starSystems} onOpenSystemInfo={handleOpenSystemInfo} onScanForAnomalies={handleScanForAnomalies} isLoading={isLoading} showNotification={showNotification} onTravelToSystem={handleInitiateTravel} />}
-        {currentView === 'planet' && <PlanetView selectedPlanet={selectedPlanet} discoveredPlanets={discoveredPlanets} playerState={playerState} currentShip={currentShip} currentShipCalculatedStats={currentShipCalculatedStats} isLoading={isLoading} onScanResources={handleScanPlanetResources} onColonize={handleColonizePlanet} COLONIZATION_CREDIT_COST={COLONIZATION_CREDIT_COST} starSystems={_starSystems} onPlanetLoreGenerated={(planetId, newLore) => { setDiscoveredPlanets(prev => prev.map(p => p.id === planetId ? {...p, description: newLore} : p)); if (selectedPlanet?.id === planetId) setSelectedPlanet(prev => prev ? {...prev, description: newLore } : null); }} onSetCurrentView={setCurrentView} onSetSelectedStation={setSelectedStation} isAtWarWithOwningFaction={!!isAtWarWithCurrentPlanetOwner} onBack={() => {const sysId = selectedPlanet?.systemId; setSelectedPlanet(null); setCurrentView('systemDetail'); setSelectedSystemIdForDetailView(sysId || null); }} onBuildStructure={handleBuildColonyStructure} onRepairShipAtColony={handleRepairShipAtColony} />}
+        {currentView === 'planet' && <PlanetView selectedPlanet={selectedPlanet} discoveredPlanets={discoveredPlanets} playerState={playerState} currentShip={currentShip} currentShipCalculatedStats={currentShipCalculatedStats} isLoading={isLoading} onScanResources={handleScanPlanetResources} onTravelToPlanet={planetId => handleInitiateTravel(planetId, 'planet')} onColonize={handleColonizePlanet} COLONIZATION_CREDIT_COST={COLONIZATION_CREDIT_COST} starSystems={_starSystems} onPlanetLoreGenerated={(planetId, newLore) => { setDiscoveredPlanets(prev => prev.map(p => p.id === planetId ? {...p, description: newLore} : p)); if (selectedPlanet?.id === planetId) setSelectedPlanet(prev => prev ? {...prev, description: newLore } : null); }} onSetCurrentView={setCurrentView} onSetSelectedStation={setSelectedStation} isAtWarWithOwningFaction={!!isAtWarWithCurrentPlanetOwner} onBack={() => {const sysId = selectedPlanet?.systemId; setSelectedPlanet(null); setCurrentView('systemDetail'); setSelectedSystemIdForDetailView(sysId || null); }} onBuildStructure={handleBuildColonyStructure} onRepairShipAtColony={handleRepairShipAtColony} />}
         {currentView === 'inventory' && <InventoryView playerState={playerState} currentShipCalculatedStats={currentShipCalculatedStats} currentCargoUsage={currentCargoUsage} />}
         {currentView === 'npcs' && <NpcView selectedNpc={selectedNpc} npcInteractionMessage={npcInteractionMessage} onSetNpcInteractionMessage={setNpcInteractionMessage} onNpcInteract={handleNpcInteraction} onEncounterNpc={handleEncounterNPC} isLoading={isLoading || isGeneratingMission} playerState={playerState} getTranslatedNpcRole={getTranslatedNpcRole} onStartCombat={handleStartCombat} />}
-        {currentView === 'missions' && <MissionsView activeMissions={activeMissions} onGenerateMission={handleGenerateMission} onCompleteMission={handleCompleteMission} isLoading={isLoading || isGeneratingMission} playerState={playerState} />}
+        {currentView === 'missions' && <MissionsView activeMissions={activeMissions} onGenerateMission={handleGenerateMission} onCompleteMission={handleCompleteMission} isLoading={isLoading || isGeneratingMission} playerState={playerState} discoveredPlanets={discoveredPlanets} discoveredStations={discoveredStations} onOpenMission={handleOpenMission} />}
         {currentView === 'crafting' && <CraftingView playerState={playerState} onCraftItem={handleCraftItem} isLoading={isLoading} />}
         {currentView === 'colonies' && <ColoniesView discoveredPlanets={discoveredPlanets} playerState={playerState} onViewColonyDetails={handleViewColonyDetails} />}
         {currentView === 'profile' && gamePhase === 'profileView' && <ProfileView playerState={playerState} onNavigate={setCurrentView} />}

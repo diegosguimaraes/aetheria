@@ -1,165 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StarCraft: Procedural Universe</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              scifi: {
-                dark: '#030711',
-                cyan: '#0ea5e9',
-                teal: '#2dd4bf',
-                orange: '#f59e0b',
-                red: '#ef4444',
-                glass: 'rgba(15, 23, 42, 0.7)',
-              }
-            },
-            fontFamily: {
-              display: ['Oxanium', 'cursive'],
-              technical: ['JetBrains Mono', 'monospace'],
-              sans: ['Inter', 'sans-serif'],
-            },
-            boxShadow: {
-              'scifi-glow': '0 0 15px rgba(14, 165, 233, 0.3)',
-              'scifi-border': 'inset 0 0 10px rgba(14, 165, 233, 0.1)',
-            }
-          }
-        }
-      }
-    </script>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700&display=swap');
-
-      body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        overscroll-behavior-y: contain; /* Prevent pull-to-refresh on mobile when interacting with map */
-      }
-      #galaxy-map-container {
-        background-image: url('https://raw.githubusercontent.com/MobileGPTWizard/gemini-starcraft-map-asset/main/starcraft_map_lowres.jpg');
-        background-size: cover;
-        background-position: center;
-        position: relative; /* For absolute positioning of systems */
-        width: 100%;
-        /* height will be set by Tailwind or inline style in App.tsx, e.g., h-screen or h-[calc(100vh-X)] */
-      }
-
-      .starcraft-title-glow {
-        color: #d4f1ff; /* Brighter light blue base for better visibility */
-        text-shadow:
-          0 0 4px #a0e0ff, /* Softer inner cyan glow */
-          0 0 8px #a0e0ff,
-          0 0 12px #61dafb, /* Stronger cyan */
-          0 0 20px #00a2d4, /* Mid blue glow */
-          0 0 30px #0077b6,
-          0 0 45px #005c8a; /* Darker blue aura */
-        -webkit-text-stroke: 0.5px #0077b6;
-        paint-order: stroke fill;
-        animation: titleGlowPulse 5s infinite ease-in-out;
-      }
-
-      @keyframes titleGlowPulse {
-        0%, 100% {
-          text-shadow:
-            0 0 4px #a0e0ff,
-            0 0 8px #a0e0ff,
-            0 0 12px #61dafb,
-            0 0 20px #00a2d4,
-            0 0 30px #0077b6,
-            0 0 45px #005c8a;
-        }
-        50% {
-          text-shadow:
-            0 0 6px #b0e8ff,
-            0 0 12px #b0e8ff,
-            0 0 18px #74e0fc,
-            0 0 28px #00b6f0,
-            0 0 38px #008ecc,
-            0 0 55px #006ca0;
-        }
-      }
-
-      .title-screen-button {
-        background-color: rgba(10, 25, 50, 0.75); /* Darker, slightly more opaque blue */
-        border: 1px solid rgba(56, 189, 248, 0.6); /* Cyan border */
-        color: #c0e7ff; /* Light cyan text */
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        padding: 0.75rem 1.5rem; /* Adjusted padding */
-        border-radius: 6px; /* Slightly more rounded */
-        font-family: 'Oxanium', sans-serif;
-        font-weight: 600;
-        transition: all 0.2s ease-in-out;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.3), inset 0 0 4px rgba(56, 189, 248, 0.2);
-        position: relative;
-        overflow: hidden;
-      }
-
-      .title-screen-button::before { /* Shine effect */
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 50%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(173, 216, 230, 0.2), transparent); /* Light blue shine */
-        transition: left 0.4s ease-in-out;
-      }
-      
-      .title-screen-button:hover::before {
-        left: 150%;
-      }
-
-      .title-screen-button:hover {
-        background-color: rgba(56, 189, 248, 0.85); /* Brighter, more solid blue on hover */
-        color: #ffffff;
-        border-color: rgba(129, 219, 255, 0.9);
-        box-shadow: 0 0 12px rgba(56, 189, 248, 0.6), inset 0 0 8px rgba(129, 219, 255, 0.3);
-        transform: translateY(-1px);
-      }
-       .title-screen-button:active {
-        transform: translateY(0px);
-        box-shadow: 0 0 5px rgba(56, 189, 248, 0.4), inset 0 0 6px rgba(129, 219, 255, 0.2);
-      }
-
-      /* Planet Image Display Styles */
-      .planet-sprite-display {
-        background-size: contain; 
-        background-position: -28px center; /* Ajustado para mover imagem para a direita */
-        background-repeat: no-repeat; 
-        width: 240px; /* Ajustado conforme feedback do usuário */
-        height: 240px; /* Ajustado conforme feedback do usuário */
-        border-radius: 50%; 
-        overflow: hidden; 
-        margin: auto; 
-        image-rendering: -moz-crisp-edges; 
-        image-rendering: -webkit-optimize-contrast; 
-        image-rendering: crisp-edges; 
-        image-rendering: pixelated; 
-        transform: scale(0.9);
-        transform-origin: center;
-      }
-
-    </style>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.1.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
-    "react/": "https://esm.sh/react@^19.1.0/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.4.0",
-    "three": "https://esm.sh/three@^0.177.0"
-  }
-}
-</script>
-</head>
-<body class="bg-gray-900">
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#142135" />
+    <meta name="description" content="Explore mundos, siga sinais misteriosos e escreva sua história entre as estrelas. Aetheria, uma aventura espacial no seu navegador." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preload" as="image" href="/assets/illustrations/frontier.svg" />
+    <title>Aetheria — Um universo de histórias</title>
+  </head>
+  <body>
     <div id="root"></div>
+    <noscript>Ative o JavaScript para explorar o universo de Aetheria.</noscript>
     <audio id="backgroundMusic" loop src="/assets/audio/background_music.mp3"></audio>
     <script type="module" src="/src/main.tsx"></script>
-</body>
+  </body>
 </html>

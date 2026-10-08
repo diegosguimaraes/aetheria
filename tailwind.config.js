@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        display: ["Oxanium", "cursive"],
+        display: ["Space Grotesk", "sans-serif"],
         technical: ["JetBrains Mono", "monospace"],
       },
     },

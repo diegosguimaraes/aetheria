@@ -96,6 +96,9 @@ export enum MissionObjectiveType {
   DELIVER = 'DELIVER',
   SCAN_FOR_FACTION = 'SCAN_FOR_FACTION',
   TRANSPORT_FOR_FACTION = 'TRANSPORT_FOR_FACTION',
+  VISIT_LOCATION = 'VISIT_LOCATION',
+  SURVEY_PLANET = 'SURVEY_PLANET',
+  EXPLORE_SYSTEM = 'EXPLORE_SYSTEM',
   // Futuros tipos: VISIT_LOCATION, ELIMINATE_NPC_TARGET
 }
 
@@ -123,6 +126,8 @@ export interface Mission {
   issuerFactionId?: string; // ID da facção que emitiu a missão
   reputationReward?: { factionId: string; amount: number }; // Recompensa de reputação
   acceptedTick?: number; // Tick do jogo quando a missão foi aceita
+  prerequisiteMissionId?: string;
+  category?: 'adventure' | 'contract';
 }
 
 export interface GeminiPlanetResponse {
@@ -550,6 +555,8 @@ export interface PlayerState {
   currentLocation: string;
   currentSystemId: string | null;
   knownSystemIds: string[];
+  visitedLocationIds?: string[];
+  surveyedPlanetIds?: string[];
   lastTickTime: number;
 
   skillPoints: number;
@@ -580,6 +587,7 @@ export type GamePhase =
   'anomalyEventModal' | 'settingsModal' | 'combatView' | 'combatSummary';
 
 export interface FullGameState {
+  starSystems?: StarSystem[];
   playerState: PlayerState;
   discoveredPlanets: Planet[];
   encounteredNPCs: NPC[];

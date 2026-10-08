@@ -3,6 +3,7 @@ import React from 'react';
 import { StarSystem, Planet, SpaceStation, PlayerState, DestinationType } from '../../types';
 import { Icons } from '../../icons'; // Corrected path
 import LoadingSpinner from '../LoadingSpinner';
+import { PlanetIllustration } from '../AdventureArt';
 import { SCAN_SYSTEM_COST_CREDITS, TRAVEL_BASE_CREDIT_COST, FACTION_COLORS } from '../../constants'; // Corrected path
 
 interface SystemViewProps {
@@ -123,12 +124,7 @@ const SystemView: React.FC<SystemViewProps> = ({
                 >
                   <div className="absolute inset-0 bg-gradient-to-b from-sky-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   
-                  <div
-                    className="w-32 h-32 rounded-full mb-6 relative z-10 transition-transform duration-700 group-hover:scale-110 group-hover:rotate-12 bg-cover bg-center shadow-[0_0_30px_rgba(var(--color-sky-500),0.1)] border border-white/5"
-                    style={{ backgroundImage: `url(${planet.imageUrl})` }}
-                  >
-                     <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-slate-950/40 to-transparent"></div>
-                  </div>
+                  <PlanetIllustration className="w-36 h-36 mb-4 relative z-10 transition-transform duration-500 group-hover:scale-105" biome={planet.biome} ring={/gasoso/i.test(planet.biome)} />
                   
                   <div className="relative z-10">
                     <span className="block text-lg font-display font-black text-white uppercase tracking-tight group-hover:text-sky-400 transition-colors italic">{planet.name}</span>

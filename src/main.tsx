@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import './adventure.css';
 
 function mountApp() {
   const rootElement = document.getElementById('root');

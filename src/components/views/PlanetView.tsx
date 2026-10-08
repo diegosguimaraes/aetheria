@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { Planet, PlayerState, Ship, StarSystem, SpaceStation, FactionInfo, GameView, BuildingInstance, ColonialBuildingDefinition, ShipStats } from '../../types';
 import { Icons } from '../../icons'; // Corrected path
 import LoadingSpinner from '../LoadingSpinner';
+import { PlanetIllustration } from '../AdventureArt';
+import AdventureIcon from '../AdventureIcon';
 import { FIXED_LORE_PLANET_IDS, PLANET_TYPES, getResourceImagePath, ALL_FACTIONS_DATA, ALL_STATIONS_DATA as GAME_ALL_STATIONS_DATA, COLONIAL_BUILDING_DEFINITIONS, INITIAL_TECH_TREE, REPAIR_COST_PER_HULL_POINT_CREDITS, REPAIR_COST_PER_HULL_POINT_TITANIUM, REPAIR_RESOURCE_NAME } from '../../constants'; // Corrected path
 import { generateDynamicPlanetLore } from '../../services/llmService'; // Corrected path
 // calculateShipStats is no longer needed directly if currentShipCalculatedStats is passed
@@ -23,6 +25,7 @@ interface PlanetViewProps {
   onSetSelectedStation: (station: SpaceStation) => void;
   isAtWarWithOwningFaction: boolean;
   onBack: () => void;
+  onTravelToPlanet: (planetId: string) => void;
   onBuildStructure: (planetId: string, buildingDefinitionId: string) => void;
   onRepairShipAtColony: (planetId: string) => void;
 }
@@ -43,6 +46,7 @@ const PlanetView: React.FC<PlanetViewProps> = ({
   onSetSelectedStation,
   isAtWarWithOwningFaction,
   onBack,
+  onTravelToPlanet,
   onBuildStructure,
   onRepairShipAtColony
 }) => {
@@ -147,10 +151,11 @@ const PlanetView: React.FC<PlanetViewProps> = ({
           <div className="h-0.5 w-16 md:w-24 bg-gradient-to-r from-transparent via-sky-500/50 to-transparent mx-auto mt-3 md:mt-4"></div>
         </div>
 
+        {playerState.currentLocation !== planetData.id && <div className="planet-travel-prompt"><p>Você está vendo o atlas deste mundo. Viaje até sua órbita para escanear os recursos.</p><button className="adventure-button primary" onClick={() => onTravelToPlanet(planetData.id)} disabled={playerState.isTraveling || appIsLoading}><AdventureIcon name="hangar" /> Viajar até {planetData.name}<AdventureIcon name="arrow" /></button></div>}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10 mb-8 md:mb-10">
             <div className="space-y-4 md:space-y-6">
                 <div className="relative group overflow-hidden rounded-xl md:rounded-2xl border border-sky-500/20 shadow-2xl">
-                  <img src={planetData.imageUrl} alt={planetData.name} className="w-full h-48 md:h-80 object-cover transform group-hover:scale-105 transition-transform duration-700" />
+                  <div className="planet-art-frame"><PlanetIllustration biome={planetData.biome} className="planet-portrait" ring={/gasoso/i.test(planetData.biome)} /></div>
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-60"></div>
                   <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end">
                     <div className="bg-slate-900/80 backdrop-blur-md border border-sky-500/30 px-3 py-1.5 rounded-lg">
@@ -212,11 +217,11 @@ const PlanetView: React.FC<PlanetViewProps> = ({
                           <p className="text-xs text-slate-500 italic mb-4">Nenhum recurso específico mapeado. Assinaturas parciais detectadas: {planetData.resourcesHint.join('; ')}</p>
                         </div>
                     )}
-                     {!allResourcesDiscovered && planetData.resourcesHint.length > 0 && (
+                     {(!allResourcesDiscovered || !(playerState.surveyedPlanetIds || []).includes(planetData.id)) && planetData.resourcesHint.length > 0 && (
                         <button
                             onClick={() => onScanResources(planetData)}
                             className="w-full btn-scifi py-3 text-xs bg-sky-500/10 border-sky-500/30 text-sky-400 hover:bg-sky-500/30 flex items-center justify-center mt-4"
-                            disabled={appIsLoading || playerState?.isTraveling}
+                            disabled={appIsLoading || playerState.isTraveling || playerState.currentLocation !== planetData.id}
                         >
                             <div className="w-4 h-4 mr-2"><Icons.ScanSystem /></div> ESCANEAR RECURSOS (50 CR)
                         </button>
