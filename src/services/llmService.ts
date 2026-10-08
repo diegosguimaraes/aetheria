@@ -1,4 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
 import {
     GeminiPlanetResponse,
     GeminiNpcDetailsResponse,
@@ -14,9 +13,6 @@ import {
     INITIAL_SHIP_MODULES, 
     INITIAL_RESOURCES 
 } from '../constants'; 
-
-// Initialize Gemini API
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // Helper to parse JSON from potentially messy LLM text output
 const parseJsonFromText = <T,>(text: string): T | null => {
@@ -46,22 +42,26 @@ const parseJsonFromText = <T,>(text: string): T | null => {
 
 const generateGeminiContent = async (prompt: string, expectJson: boolean = true): Promise<string | null> => {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        responseMimeType: expectJson ? "application/json" : "text/plain",
-      }
+    const response = await fetch('/.netlify/functions/generate-content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, expectJson }),
+      signal: AbortSignal.timeout(30000),
     });
 
-    const content = response.text;
-    if (!content) {
+    if (!response.ok) {
+      console.error('Content generation failed:', response.status);
+      return null;
+    }
+
+    const { content } = await response.json();
+    if (typeof content !== 'string' || !content.trim()) {
       console.error("No content found in Gemini response");
       return null;
     }
     return content;
-  } catch (error) {
-    console.error("Error calling Gemini API:", error);
+  } catch {
+    console.error("Content generation is unavailable.");
     return null;
   }
 };
