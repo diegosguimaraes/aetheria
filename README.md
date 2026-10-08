@@ -72,19 +72,18 @@ O projeto utiliza uma stack moderna para garantir performance e escalabilidade:
    npm install
    ```
 
-3. **Configure as chaves de API:**
-   Crie um arquivo `.env` na raiz e adicione sua chave do Gemini:
-   ```env
-   GEMINI_API_KEY=sua_chave_aqui
-   ```
+3. **Geração de conteúdo por IA:**
+   As chamadas ao Gemini são executadas em uma Netlify Function pelo Netlify AI Gateway. As credenciais são fornecidas pelo ambiente do servidor e não são incluídas no código enviado ao navegador. O menu inicial e a criação de uma partida não dependem da disponibilidade da IA.
 
 4. **Inicie o servidor de desenvolvimento:**
    ```bash
-   npm run dev
+   netlify dev --port 8889
    ```
 
 5. **Acesse no navegador:**
-   `http://localhost:3000`
+   `http://localhost:8889`
+
+   O comando `npm run dev` também inicia a interface, mas não executa as funções do servidor necessárias à geração de conteúdo por IA.
 
 ---
 

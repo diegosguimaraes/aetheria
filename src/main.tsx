@@ -41,6 +41,8 @@ function mountApp() {
   }
 }
 
-// Always wait for the DOM to be fully loaded.
-// If DOMContentLoaded has already fired, the callback should execute immediately or very soon.
-document.addEventListener('DOMContentLoaded', mountApp);
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', mountApp, { once: true });
+} else {
+  mountApp();
+}
